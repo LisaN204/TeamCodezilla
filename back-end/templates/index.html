@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>AI-Nutrition</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 400px;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        h2 {
+            color: #555;
+        }
+
+        .hidden { display: none; }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #74ebd5;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #ACB6E5;
+        }
+
+        #chat-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: #f9f9f9;
+            text-align: left;
+        }
+
+        .user {
+            color: #fff;
+            background: #74ebd5;
+            padding: 5px 10px;
+            display: inline-block;
+            border-radius: 15px;
+            margin-bottom: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .ai {
+            color: #fff;
+            background: #ACB6E5;
+            padding: 5px 10px;
+            display: inline-block;
+            border-radius: 15px;
+            margin-bottom: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        p { margin: 5px 0; }
+        #reg-msg, #log-msg { color: red; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>AI-Nutrition</h1>
+
+        <div id="home">
+            <button onclick="showLogin()">Login</button>
+            <button onclick="showRegister()">Register</button>
+        </div>
+
+        <div id="register" class="hidden">
+            <h2>Inscription</h2>
+            <div class="form-group">
+                <input type="email" id="reg-email" placeholder="Email">
+            </div>
+            <div class="form-group">
+                <input type="password" id="reg-password" placeholder="Mot de passe">
+            </div>
+            <button onclick="register()">S'inscrire</button>
+            <p id="reg-msg"></p>
+        </div>
+
+        <div id="login" class="hidden">
+            <h2>Connexion</h2>
+            <div class="form-group">
+                <input type="email" id="log-email" placeholder="Email">
+            </div>
+            <div class="form-group">
+                <input type="password" id="log-password" placeholder="Mot de passe">
+            </div>
+            <button onclick="login()">Se connecter</button>
+            <p id="log-msg"></p>
+        </div>
+
+        <div id="chat" class="hidden">
+            <h2>Chat avec AI</h2>
+            <div id="chat-box"></div>
+            <input type="text" id="chat-input" placeholder="Tapez votre message">
+            <button onclick="sendMessage()">Envoyer</button>
+        </div>
+    </div>
+
+    <script>
+        let userId = null;
+        let chatHistory = [];
+
+        function showLogin() {
+            document.getElementById('home').classList.add('hidden');
+            document.getElementById('login').classList.remove('hidden');
+        }
+
+        function showRegister() {
+            document.getElementById('home').classList.add('hidden');
+            document.getElementById('register').classList.remove('hidden');
+        }
+
+        async function register() {
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const res = await fetch('http://127.0.0.1:5000/users/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            document.getElementById('reg-msg').innerText = data.msg;
+        }
+
+        async function login() {
+            const email = document.getElementById('log-email').value;
+            const password = document.getElementById('log-password').value;
+            const res = await fetch('http://127.0.0.1:5000/users/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (res.status === 200) {
+                userId = data.user_id;
+                chatHistory = data.chat_history || [];
+                showChat();
+            } else {
+                document.getElementById('log-msg').innerText = data.msg;
+            }
+        }
+
+        function showChat() {
+            document.getElementById('login').classList.add('hidden');
+            document.getElementById('register').classList.add('hidden');
+            document.getElementById('chat').classList.remove('hidden');
+            renderChat();
+        }
+
+        function renderChat() {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = '';
+            chatHistory.forEach(msg => {
+                const p = document.createElement('p');
+                p.innerText = msg.content;
+                p.className = msg.role === 'user' ? 'user' : 'ai';
+                chatBox.appendChild(p);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = document.getElementById('chat-input').value;
+            if (!message) return;
+            chatHistory.push({ role: 'user', content: message });
+            renderChat();
+            document.getElementById('chat-input').value = '';
+
+            const res = await fetch('http://127.0.0.1:5000/chat/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+            const data = await res.json();
+            if (res.status === 200) {
+                chatHistory.push({ role: 'assistant', content: data.response });
+                renderChat();
+            } else {
+                alert(data.msg);
+            }
+        }
+    </script>
+
+</body>
+</html>
+
